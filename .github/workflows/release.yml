@@ -1,8 +1,7 @@
 name: Release Tests & Publish
 
 on:
-  release:
-    types: [ 'published' ]
+  [push]
 
 permissions:
   contents: read
@@ -22,12 +21,9 @@ jobs:
       - name: 'Build with Gradle 🏗️'
         uses: gradle/gradle-build-action@v3
         with:
-          arguments: build test publish
-        env:
-          RELEASES_MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-          RELEASES_MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-      - name: 'Publish Test Report 📊'
-        uses: mikepenz/action-junit-report@v4
-        if: success() || failure() # Continue on failure
+          arguments: build 
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
         with:
-          report_paths: '**/build/test-results/test/TEST-*.xml'
+          name: rArtifact
+          path: build/libs/*.jar
