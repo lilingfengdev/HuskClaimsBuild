@@ -286,13 +286,51 @@ This is a table of HuskClaims commands, how to use them, their required permissi
             <td><code>huskclaims.command.buyclaimblocks</code></td>
             <td align="center">✅</td>
         </tr>
+        <!-- /transferpet command -->
+        <tr><th colspan="5">Pet commands</th></tr>
+        <tr><td colspan="5" align="center">Manage protection of tamed animals.</td></tr>
+        <tr>
+            <td rowspan="2"><code>/transferpet</code></td>
+            <td rowspan="2"><code>/transferpet &lt;username&gt;</code></td>
+            <td>Transfer ownership of a tamed animal (pet) to another player</td>
+            <td><code>huskclaims.command.transferpet</code></td>
+            <td align="center">✅</td>
+        </tr>
+        <tr>
+            <td>Transfer ownership of someone else's pet</td>
+            <td><code>huskclaims.command.transferpet.other</code></td>
+            <td align="center">❌</td>
+        </tr>
+        <!-- /unlockdrops command -->
+        <tr><th colspan="5">Death drop commands</th></tr>
+        <tr><td colspan="5" align="center">Manage the locking of dropped items on death.</td></tr>
+        <tr>
+            <td rowspan="2"><code>/unlockdrops</code></td>
+            <td><code>/unlockdrops</code></td>
+            <td>Unlock locked item drops from when you died</td>
+            <td><code>huskclaims.command.unlockdrops</code></td>
+            <td align="center">✅</td>
+        </tr>
+        <tr>
+            <td><code>/unlockdrops &lt;username&gt;</code></td>
+            <td>Unlock someone else's death drops</td>
+            <td><code>huskclaims.command.unlockdrops.other</code></td>
+            <td align="center">❌</td>
+        </tr>
         <tr><th colspan="5">Other administrator commands</th></tr>
-        <tr><td colspan="5" align="center">Ignore claims and manage the plugin.</td></tr>
+        <tr><td colspan="5" align="center">Moderation and plugin management utilities.</td></tr>
         <tr>
             <td><code>/ignoreclaims</code></td>
             <td><code>/ignoreclaims [on|off]</code></td>
             <td>Toggle ignoring claim rules/trust levels. Note you must constantly have the permission to keep ignoring claims.</td>
             <td><code>huskclaims.command.ignoreclaims</code></td>
+            <td align="center">❌</td>
+        </tr>
+        <tr>
+            <td><code>/signspy</code></td>
+            <td><code>/signspy [on|off]</code></td>
+            <td>Toggle receiving sign moderation notifications when users place or edit signs.</td>
+            <td><code>huskclaims.command.signspy</code></td>
             <td align="center">❌</td>
         </tr>
         <tr>
@@ -366,5 +404,6 @@ The following commands have aliases that can also be used for convenience:
 | `/restrictclaim`   | `/restrictchildclaim`, `/restrictsubclaim` |
 | `/claimblocks`     | `/adjustclaimblocks`                       |
 | `/permissiontrust` | `/managetrust` &dagger;                    |
+| `/transferpet`     | `/givepet`                                 |
 
 &dagger; You can customize or change the [Trust Levels](trust#trust-levels) entirely if you wish, including command aliases.

@@ -84,6 +84,10 @@ public class ClaimWorld {
                 .findFirst().orElseThrow(() -> new IllegalStateException("ClaimWorld not registered"));
     }
 
+    public long getSurfaceClaimedBy(@NotNull User owner) {
+        return getClaimsByUser(owner.getUuid()).stream().mapToInt(c -> c.getRegion().getSurfaceArea()).sum();
+    }
+
     public boolean removeClaimsBy(@NotNull User owner) {
         return claims.removeIf(claim -> claim.getOwner().map(owner.getUuid()::equals).orElse(false));
     }

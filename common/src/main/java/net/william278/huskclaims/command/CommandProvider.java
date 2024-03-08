@@ -105,6 +105,21 @@ public interface CommandProvider {
         commands.add(new RestrictClaimCommand(getPlugin()));
         commands.add(new IgnoreClaimsCommand(getPlugin()));
 
+        // Register sign spying
+        if (getPlugin().getSettings().getModeration().getSigns().isNotifyModerators()) {
+            commands.add(new SignSpyCommand(getPlugin()));
+        }
+
+        // Register drop unlocking
+        if (getPlugin().getSettings().getModeration().getDrops().isLockItems()) {
+            commands.add(new UnlockDropsCommand(getPlugin()));
+        }
+
+        // Register pet transfer command
+        if (getPlugin().getSettings().getPets().isEnabled()) {
+            commands.add(new TransferPetCommand(getPlugin()));
+        }
+
         // Register claim block purchasing
         if (getPlugin().getSettings().getHooks().getEconomy().isEnabled()) {
             commands.add(new BuyClaimBlocksCommand(getPlugin()));

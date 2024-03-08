@@ -46,6 +46,7 @@ import net.william278.huskclaims.listener.BukkitListener;
 import net.william278.huskclaims.listener.ClaimsListener;
 import net.william278.huskclaims.network.Broker;
 import net.william278.huskclaims.network.PluginMessageBroker;
+import net.william278.huskclaims.pet.BukkitPetHandler;
 import net.william278.huskclaims.position.Position;
 import net.william278.huskclaims.position.World;
 import net.william278.huskclaims.trust.TrustLevel;
@@ -77,11 +78,12 @@ import java.util.logging.Level;
 @NoArgsConstructor
 @Getter
 public class BukkitHuskClaims extends JavaPlugin implements HuskClaims, BukkitTask.Supplier, BukkitBlockProvider,
-        BukkitEventDispatcher, BukkitHookProvider, PluginMessageListener {
+        BukkitPetHandler, BukkitEventDispatcher, BukkitHookProvider, PluginMessageListener {
 
     private MorePaperLib morePaperLib;
     private AudienceProvider audiences;
     private final Set<TrustTag> trustTags = ConcurrentHashMap.newKeySet();
+    private final Set<GroundItem> trackedDrops = ConcurrentHashMap.newKeySet();
     private final ConcurrentMap<String, List<User>> globalUserList = Maps.newConcurrentMap();
     private final ConcurrentMap<UUID, ClaimSelection> claimSelections = Maps.newConcurrentMap();
     private final ConcurrentMap<UUID, SavedUser> userCache = Maps.newConcurrentMap();
@@ -265,7 +267,7 @@ public class BukkitHuskClaims extends JavaPlugin implements HuskClaims, BukkitTa
 
     @NotNull
     @Override
-    public ClaimsListener createClaimsListener() {
+    public ClaimsListener createListener() {
         return new BukkitListener(this);
     }
 

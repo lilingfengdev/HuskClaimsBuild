@@ -24,6 +24,7 @@ import net.william278.huskclaims.BukkitHuskClaims;
 import net.william278.huskclaims.HuskClaims;
 import net.william278.huskclaims.user.BukkitUser;
 import net.william278.huskclaims.user.OnlineUser;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.jetbrains.annotations.NotNull;
 
@@ -50,8 +51,12 @@ public class BukkitVaultEconomyHook extends EconomyHook {
     }
 
     @Override
-    public boolean takeMoney(@NotNull OnlineUser user, double amount) {
-        return economy.withdrawPlayer(((BukkitUser) user).getBukkitPlayer(), amount).transactionSuccess();
+    public boolean takeMoney(@NotNull OnlineUser user, double amount, @NotNull EconomyReason reason) {
+        final Player player = ((BukkitUser) user).getBukkitPlayer();
+        if (!economy.has(player, amount)) {
+            return false;
+        }
+        return economy.withdrawPlayer(player, amount).transactionSuccess();
     }
 
     @Override

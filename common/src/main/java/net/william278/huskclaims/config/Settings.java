@@ -228,6 +228,28 @@ public final class Settings {
         @Comment("Whether to require confirmation when deleting claims that have children")
         private boolean confirmDeletingParentClaims = true;
 
+        @Comment("Settings for automatically removing claims made by now-inactive users")
+        private InactivityPruningSettings inactivityPruning = new InactivityPruningSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class InactivityPruningSettings {
+
+            @Comment("Whether to delete all claims made by users marked as inactive. (Warning: Dangerous!)")
+            private boolean enabled = false;
+
+            @Comment("The number of days a user must not log on for to be marked as inactive (Minimum: 1)")
+            private long inactiveDays = 60;
+
+            @Comment("List of worlds to exclude from being pruned.")
+            private List<String> excludedWorlds = Lists.newArrayList();
+
+            @Comment("List of users (by either UUID or username) to exclude from inactive claim pruning")
+            private List<String> excludedUsers = Lists.newArrayList();
+
+        }
+
         public boolean isWorldUnclaimable(@NotNull World world) {
             return unclaimableWorlds.stream().anyMatch(world.getName()::equalsIgnoreCase);
         }
@@ -384,6 +406,65 @@ public final class Settings {
         }
     }
 
+    @Comment("Settings for protecting tamed animals (pets). Docs: https://william278.net/docs/huskclaims/pets")
+    private PetSettings pets = new PetSettings();
+
+    @Getter
+    @Configuration
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class PetSettings {
+
+        @Comment("Whether to enable protecting tamed animals to only be harmed/used by their owner")
+        private boolean enabled = true;
+
+    }
+
+    @Comment("Settings for moderation tools")
+    private ModerationSettings moderation = new ModerationSettings();
+
+    @Getter
+    @Configuration
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class ModerationSettings {
+
+        private SignSettings signs = new SignSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class SignSettings {
+            @Comment("Whether to notify users with /signspy on when signs are placed.edited. Requires Minecraft 1.19.4+"
+                    + "Requires Minecraft 1.19.4+")
+            private boolean notifyModerators = true;
+
+            @Comment("Whether to filter messages")
+            private boolean filterMessages = false;
+
+            @Comment("Whether sign notifications should be limited to just filtered signs")
+            private boolean onlyNotifyIfFiltered = false;
+
+            @Comment("Single character to replace filtered message content with")
+            private char replacementCharacter = '#';
+
+            @Comment("List of words to filter out of signs")
+            private List<String> filteredWords = List.of();
+        }
+
+        private DropSettings drops = new DropSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class DropSettings {
+            @Comment("Whether to lock ground items dropped by players when they die from being picked up by others")
+            private boolean lockItems = true;
+
+            @Comment("Whether to also prevent death drops from being destroyed by lava, fire, cacti, etc.")
+            private boolean preventDestruction = false;
+        }
+
+    }
+
     @Comment("Settings for integration hooks with other plugins")
     private HookSettings hooks = new HookSettings();
 
@@ -433,6 +514,17 @@ public final class Settings {
             @Comment("The trust level required to set a home in a claim (the ID of a level in 'trust_levels.yml')")
             private String setHomeTrustLevel = "access";
         }
+
+        private HuskTownsHookSettings huskTowns = new HuskTownsHookSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class HuskTownsHookSettings {
+            @Comment("Whether to hook into HuskTowns to disable claiming over town claims")
+            private boolean enabled = true;
+        }
+
 
         private EconomyHookSettings economy = new EconomyHookSettings();
 
