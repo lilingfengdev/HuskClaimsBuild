@@ -5,15 +5,15 @@ plugins {
 
 dependencies {
     api 'net.jodah:expiringmap:0.5.11'
-    api 'commons-io:commons-io:2.15.1'
-    api 'org.apache.commons:commons-text:1.11.0'
-    api 'de.themoep:minedown-adventure:1.7.2-SNAPSHOT'
+    api 'commons-io:commons-io:2.16.1'
+    api 'org.apache.commons:commons-text:1.12.0'
     api 'com.google.code.gson:gson:2.10.1'
     api 'com.fatboyindustrial.gson-javatime-serialisers:gson-javatime-serialisers:1.1.2'
     api 'com.github.Exlll.ConfigLib:configlib-yaml:v4.5.0'
+    api 'net.william278:minedown:1.8.2'
+    api 'net.william278:paginedown:1.1.2'
     api 'net.william278.cloplib:cloplib-common:1.0.3'
     api 'net.william278:DesertWell:2.0.4'
-    api 'net.william278:PagineDown:1.1'
     api('com.zaxxer:HikariCP:5.1.0') {
         exclude module: 'slf4j-api'
     }
@@ -21,22 +21,22 @@ dependencies {
     compileOnly 'net.kyori:adventure-api:4.16.0'
     compileOnly 'net.kyori:adventure-platform-api:4.3.2'
     compileOnly 'org.jetbrains:annotations:24.1.0'
-    compileOnly 'com.google.guava:guava:33.0.0-jre'
-    compileOnly 'org.projectlombok:lombok:1.18.30'
+    compileOnly 'com.google.guava:guava:33.1.0-jre'
+    compileOnly 'org.projectlombok:lombok:1.18.32'
 
     compileOnly 'net.luckperms:api:5.4'
     compileOnly 'com.github.BlueMap-Minecraft:BlueMapAPI:2.7.0'
     compileOnly 'us.dynmap:DynmapCoreAPI:3.6'
-    compileOnly 'maven.modrinth:pl3xmap:1.20.4-484'
-    compileOnly 'com.github.plan-player-analytics:Plan:5.6.2816'
+    compileOnly 'maven.modrinth:pl3xmap:1.20.4-492'
+    compileOnly 'com.github.plan-player-analytics:Plan:5.6.2820'
 
-    testImplementation 'com.github.plan-player-analytics:Plan:5.6.2816'
-    testImplementation 'com.google.guava:guava:33.0.0-jre'
+    testImplementation 'com.github.plan-player-analytics:Plan:5.6.2820'
+    testImplementation 'com.google.guava:guava:33.1.0-jre'
 
     compileOnly "org.xerial:sqlite-jdbc:$sqlite_driver_version"
     compileOnly "com.mysql:mysql-connector-j:$mysql_driver_version"
     compileOnly "org.mariadb.jdbc:mariadb-java-client:$mariadb_driver_version"
     compileOnly "redis.clients:jedis:$jedis_version"
 
-    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
 }

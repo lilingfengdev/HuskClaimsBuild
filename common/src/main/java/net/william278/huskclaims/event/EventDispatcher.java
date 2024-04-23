@@ -109,6 +109,12 @@ public interface EventDispatcher extends EventProvider {
         return fireIsCancelled(getEnterClaimEvent(user, claim, claimWorld, enteredFrom, enteredTo));
     }
 
+    default boolean fireIsCancelledExitClaimEvent(@NotNull OnlineUser user, @NotNull Claim claim,
+                                                  @NotNull ClaimWorld claimWorld,
+                                                  @NotNull Position exitedFrom, @NotNull Position exitedTo) {
+        return fireIsCancelled(getExitClaimEvent(user, claim, claimWorld, exitedFrom, exitedTo));
+    }
+
     default void fireResizeChildClaimEvent(@NotNull OnlineUser resizer, @NotNull Claim parent,
                                            @NotNull Claim child, @NotNull Region newRegion,
                                            @NotNull ClaimWorld claimWorld,
@@ -128,7 +134,7 @@ public interface EventDispatcher extends EventProvider {
         fireEvent(getTrustEvent(user, level, trusted, claim, claimWorld), callback);
     }
 
-    default void fireUntrustEvent(@NotNull OnlineUser user, @NotNull TrustLevel level, @NotNull Trustable untrusted,
+    default void fireUnTrustEvent(@NotNull OnlineUser user, @NotNull TrustLevel level, @NotNull Trustable untrusted,
                                   @NotNull Claim claim, @NotNull ClaimWorld claimWorld,
                                   @NotNull Consumer<UnTrustEvent> callback) {
         fireEvent(getUnTrustEvent(user, level, untrusted, claim, claimWorld), callback);

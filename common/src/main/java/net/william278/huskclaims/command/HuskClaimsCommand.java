@@ -24,9 +24,12 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
+import net.william278.cloplib.operation.OperationType;
 import net.william278.desertwell.about.AboutMenu;
 import net.william278.desertwell.util.UpdateChecker;
 import net.william278.huskclaims.HuskClaims;
+import net.william278.huskclaims.claim.Claim;
+import net.william278.huskclaims.claim.ClaimWorld;
 import net.william278.huskclaims.config.Locales;
 import net.william278.huskclaims.hook.HuskHomesHook;
 import net.william278.huskclaims.hook.Importer;
@@ -54,6 +57,7 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
             "about", false,
             "help", false,
             "teleport", true,
+            "flags", true,
             "logs", true,
             "status", true,
             "import", true,
@@ -83,7 +87,10 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
                         AboutMenu.Credit.of("AlexDev_").description("Code"))
                 .credits("Translators",
                         AboutMenu.Credit.of("jhqwqmc").description("Simplified Chinese (zh-cn)"),
-                        AboutMenu.Credit.of("Artem4ikBaik").description("Russian (ru-ru)"))
+                        AboutMenu.Credit.of("Artem4ikBaik").description("Russian (ru-ru)"),
+                        AboutMenu.Credit.of("Edward205").description("Romanian (ro-ro)"),
+                        AboutMenu.Credit.of("iRazvan2745").description("Romanian (ro-ro)")
+                )
                 .buttons(
                         AboutMenu.Link.of("https://william278.net/docs/huskclaims").text("Documentation").icon("⛏"),
                         AboutMenu.Link.of("https://github.com/WiIIiam278/HuskClaims/issues").text("Issues").icon("❌").color(TextColor.color(0xff9f0f)),
@@ -106,6 +113,7 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
                     getCommandList(executor).getNearestValidPage(parseIntArg(args, 1).orElse(1))
             );
             case "teleport" -> handleTeleportCommand(executor, removeFirstArg(args));
+            case "flags" -> handleFlagsCommand(executor, removeFirstArg(args));
             case "logs" -> handleLogsCommand(executor, removeFirstArg(args));
             case "status" -> {
                 getPlugin().getLocales().getLocale("system_status_header").ifPresent(executor::sendMessage);
@@ -118,6 +126,7 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
             case "reload" -> plugin.runSync(() -> {
                 try {
                     plugin.unloadHooks();
+                    plugin.loadLocales();
                     plugin.loadSettings();
                     plugin.loadHooks();
                     plugin.getLocales().getLocale("reload_complete").ifPresent(executor::sendMessage);
@@ -203,14 +212,14 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
         final Locales locales = plugin.getLocales();
         final String userName = user.getUser().getName();
         final PaginatedList list = PaginatedList.of(auditLog
-                .stream().map(
-                        entry -> locales.getRawLocale("audit_log_row",
-                                DateTimeFormatter.ofPattern("dd MMM, yyyy HH:mm").format(entry.timestamp()),
-                                Locales.escapeText(entry.entry().getAction().getFormattedName()),
-                                entry.entry().getUser() != null ? Locales.escapeText(entry.entry().getUser().getName()) : "",
-                                entry.entry().getMessage() != null ? Locales.escapeText(entry.entry().getMessage()) : ""
-                        ).orElse("")
-                ).toList(),
+                        .stream().map(
+                                entry -> locales.getRawLocale("audit_log_row",
+                                        DateTimeFormatter.ofPattern("dd MMM, yyyy HH:mm").format(entry.timestamp()),
+                                        Locales.escapeText(entry.entry().getAction().getFormattedName()),
+                                        entry.entry().getUser() != null ? Locales.escapeText(entry.entry().getUser().getName()) : "",
+                                        entry.entry().getMessage() != null ? Locales.escapeText(entry.entry().getMessage()) : ""
+                                ).orElse("")
+                        ).toList(),
                 locales.getBaseList(ITEMS_PER_LIST_PAGE)
                         .setItemSeparator("\n").setCommand("/%s logs %s".formatted(getName(), userName))
                         .setHeaderFormat(locales.getRawLocale("audit_log_header",
@@ -234,6 +243,68 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
                 () -> plugin.getLocales().getLocale("error_huskhomes_not_found")
                         .ifPresent(executor::sendMessage)
         );
+    }
+
+    private void handleFlagsCommand(@NotNull CommandUser executor, @NotNull String[] args) {
+        if (!(executor instanceof OnlineUser online)) {
+            plugin.getLocales().getLocale("error_invalid_syntax", "/%s flags [flag] <true/false>")
+                    .ifPresent(executor::sendMessage);
+            return;
+        }
+
+        final Optional<ClaimWorld> optionalWorld = plugin.getClaimWorld(online.getWorld());
+        if (optionalWorld.isEmpty()) {
+            plugin.getLocales().getLocale("world_not_claimable")
+                    .ifPresent(online::sendMessage);
+            return;
+        }
+        final ClaimWorld world = optionalWorld.get();
+        this.handleClaimFlagsCommand(online, world.getClaimAt(online.getPosition()).orElse(null), world, args);
+    }
+
+    private void handleClaimFlagsCommand(@NotNull OnlineUser onlineUser, @Nullable Claim claim,
+                                         @NotNull ClaimWorld world, @NotNull String[] args) {
+        final Optional<OperationType> type = parseOperationTypeArg(args, 0);
+        if (type.isEmpty()) {
+            this.sendClaimFlagsList(onlineUser, claim, world);
+            return;
+        }
+
+        // Parse operation type
+        final OperationType operationType = type.get();
+        final boolean value = parseBooleanArg(args, 1).orElse(claim == null
+                ? world.getWildernessFlags().contains(operationType)
+                : claim.getDefaultFlags().contains(operationType));
+
+        // Update flags
+        final Collection<OperationType> types = claim == null ? world.getWildernessFlags() : claim.getDefaultFlags();
+        if (value) {
+            types.add(operationType);
+        } else {
+            types.remove(operationType);
+        }
+        plugin.getDatabase().updateClaimWorld(world);
+
+        // Send flag list to indicated update
+        this.sendClaimFlagsList(onlineUser, claim, world);
+    }
+
+    private void sendClaimFlagsList(@NotNull OnlineUser onlineUser, @Nullable Claim claim,
+                                    @NotNull ClaimWorld world) {
+        if (claim != null) {
+            plugin.getLocales().getLocale("claim_flags_header", claim.getOwnerName(world, plugin))
+                    .ifPresent(onlineUser::sendMessage);
+        } else {
+            plugin.getLocales().getLocale("claim_flags_header_wilderness", world.getName(plugin))
+                    .ifPresent(onlineUser::sendMessage);
+        }
+
+        onlineUser.sendMessage(plugin.getLocales().format(Arrays.stream(OperationType.values())
+                .map(op -> plugin.getLocales().getRawLocale("claim_flag_%s"
+                                .formatted((claim == null ? world.getWildernessFlags() : claim.getDefaultFlags())
+                                        .contains(op) ? "enabled" : "disabled"),
+                        WordUtils.capitalizeFully(op.name().replaceAll("_", " "))
+                ).orElse(op.name())).collect(Collectors.joining(plugin.getLocales().getListJoiner()))));
     }
 
     @NotNull

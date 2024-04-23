@@ -169,7 +169,7 @@ public final class Settings {
     @Configuration
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
     public static class ClaimSettings {
-        @Comment("Default flags for regular claims")
+        @Comment("Default flags for new regular claims")
         private List<OperationType> defaultFlags = List.of(
                 OperationType.PLAYER_DAMAGE_MONSTER,
                 OperationType.EXPLOSION_DAMAGE_ENTITY,
@@ -178,7 +178,7 @@ public final class Settings {
                 OperationType.PASSIVE_MOB_SPAWN
         );
 
-        @Comment("Default flags for admin claims")
+        @Comment("Default flags for new admin claims")
         private List<OperationType> adminFlags = List.of(
                 OperationType.PLAYER_DAMAGE_MONSTER,
                 OperationType.EXPLOSION_DAMAGE_ENTITY,
@@ -192,7 +192,8 @@ public final class Settings {
                 ClaimingMode.values() // Allow all claiming modes
         );
 
-        @Comment("Default flags for the wilderness (outside claims)")
+        @Comment({"Default flags for the wilderness (outside claims)",
+                "To modify existing worlds, use /huskclaims flag <flag> <true/false> while standing outside a claim."})
         private List<OperationType> wildernessRules = List.of(
                 OperationType.values() // Allow all operation types
         );
@@ -227,6 +228,12 @@ public final class Settings {
 
         @Comment("Whether to require confirmation when deleting claims that have children")
         private boolean confirmDeletingParentClaims = true;
+
+        @Comment("Whether to send a message when a player enters a claim")
+        private boolean sendEntryMessage = false;
+
+        @Comment("Whether to send a message when a player exits a claim")
+        private boolean sendExitMessage = false;
 
         @Comment("Settings for automatically removing claims made by now-inactive users")
         private InactivityPruningSettings inactivityPruning = new InactivityPruningSettings();
@@ -457,7 +464,7 @@ public final class Settings {
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public static class DropSettings {
             @Comment("Whether to lock ground items dropped by players when they die from being picked up by others")
-            private boolean lockItems = true;
+            private boolean lockItems = false;
 
             @Comment("Whether to also prevent death drops from being destroyed by lava, fire, cacti, etc.")
             private boolean preventDestruction = false;
