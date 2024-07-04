@@ -19,12 +19,11 @@
 
 package net.william278.huskclaims.listener;
 
+import lombok.Getter;
 import net.william278.cloplib.listener.BukkitOperationListener;
 import net.william278.cloplib.operation.OperationPosition;
 import net.william278.cloplib.operation.OperationUser;
 import net.william278.huskclaims.BukkitHuskClaims;
-import net.william278.huskclaims.HuskClaims;
-import net.william278.huskclaims.moderation.DropsListener;
 import net.william278.huskclaims.moderation.SignListener;
 import net.william278.huskclaims.user.BukkitUser;
 import net.william278.huskclaims.user.User;
@@ -36,18 +35,16 @@ import org.bukkit.entity.Tameable;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.player.PlayerItemHeldEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
+@Getter
 public class BukkitListener extends BukkitOperationListener implements BukkitPetListener, BukkitDropsListener,
-        ClaimsListener, UserListener, SignListener, DropsListener {
+        ClaimsListener, UserListener, SignListener {
 
     protected final BukkitHuskClaims plugin;
 
@@ -94,6 +91,17 @@ public class BukkitListener extends BukkitOperationListener implements BukkitPet
         );
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onUserTeleport(@NotNull PlayerTeleportEvent e) {
+        if (e.getTo() != null && getPlugin().cancelMovement(
+                BukkitUser.adapt(e.getPlayer(), getPlugin()),
+                BukkitHuskClaims.Adapter.adapt(e.getFrom()),
+                BukkitHuskClaims.Adapter.adapt(e.getTo())
+        )) {
+            e.setCancelled(true);
+        }
+    }
+
     @Override
     public void onUserTamedEntityAction(@NotNull Cancellable event, @Nullable Entity player, @NotNull Entity entity) {
         // If pets are enabled, check if the entity is tamed
@@ -103,7 +111,7 @@ public class BukkitListener extends BukkitOperationListener implements BukkitPet
 
         // Check it was damaged by a player
         final Optional<Player> source = getPlayerSource(player);
-        final Optional<User> owner = ((BukkitHuskClaims) getPlugin()).getPetOwner(tamed);
+        final Optional<User> owner = getPlugin().getPetOwner(tamed);
         if (source.isEmpty() || owner.isEmpty()) {
             return;
         }
@@ -124,12 +132,6 @@ public class BukkitListener extends BukkitOperationListener implements BukkitPet
     @NotNull
     public OperationUser getUser(@NotNull Player player) {
         return BukkitUser.adapt(player, plugin);
-    }
-
-    @NotNull
-    @Override
-    public HuskClaims getPlugin() {
-        return plugin;
     }
 
     @Override

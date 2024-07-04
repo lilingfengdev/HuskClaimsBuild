@@ -160,6 +160,16 @@ public abstract class Node implements Executable {
         });
     }
 
+    protected Optional<Long> parseClaimBlocksArg(@NotNull String[] args, int index) {
+        return parseStringArg(args, index).flatMap(arg -> {
+            try {
+                return Optional.of(Math.min(SavedUser.MAX_CLAIM_BLOCKS, Math.abs(Long.parseLong(arg))));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        });
+    }
+
     protected Optional<Integer> parseIntArg(@NotNull String[] args, int index) {
         return parseStringArg(args, index).flatMap(arg -> {
             try {

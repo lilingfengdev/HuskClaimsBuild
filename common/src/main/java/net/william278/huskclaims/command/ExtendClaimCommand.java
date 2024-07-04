@@ -58,12 +58,13 @@ public class ExtendClaimCommand extends InClaimOwnerCommand {
     private void extendClaim(@NotNull OnlineUser executor, @NotNull ClaimWorld world,
                              @NotNull Claim claim, @Nullable Claim parent, @NotNull String[] args) {
         final Settings.ClaimSettings claims = plugin.getSettings().getClaims();
-        if (claims.isRequireToolForCommands() && !executor.isHolding(claims.getClaimTool())) {
+        if (claims.isRequireToolForCommands() && !executor.isHolding(claims.getClaimToolData())) {
             plugin.getLocales().getLocale("claim_tool_required")
                     .ifPresent(executor::sendMessage);
             return;
         }
 
+        // Validate and parse input distance
         final Optional<Integer> distance = parseIntArg(args, 0);
         if (distance.isEmpty() || distance.get() <= 0) {
             plugin.getLocales().getLocale("error_invalid_syntax", getUsage())
@@ -71,14 +72,33 @@ public class ExtendClaimCommand extends InClaimOwnerCommand {
             return;
         }
 
-        final Region extendedRegion = getExtendedRegion(
-                claim.getRegion(),
-                ExtendDirection.getFrom(executor.getPosition().getYaw()), distance.get()
-        );
+        // Protect against extending claims to a size that is too large (can cause extreme lag)
+        final int extendDistance = plugin.getSettings().getClaims().getInspectionDistance() * 2;
+        if (distance.get() > extendDistance) {
+            plugin.getLocales().getLocale("error_extendclaim_too_large", Integer.toString(extendDistance))
+                    .ifPresent(executor::sendMessage);
+            return;
+        }
+
+        // Protect against extending claims outside the world limits
+        final ExtendDirection direction = ExtendDirection.getFrom(executor.getPosition().getYaw());
+        if (Region.Point.isOutOfRange(
+                executor.getPosition(),
+                direction.xAxis() ? distance.get() : 0,
+                direction.xAxis() ? 0 : distance.get()
+        )) {
+            plugin.getLocales().getLocale("region_outside_world_limits")
+                    .ifPresent(executor::sendMessage);
+            return;
+        }
+
+        // Extend the region, resize the claim
+        final Region extendedRegion = getExtendedRegion(claim.getRegion(), direction, distance.get());
         if (parent != null) {
             plugin.userResizeChildClaim(executor, world, claim, extendedRegion);
             return;
         }
+
         plugin.userResizeClaim(executor, world, claim, extendedRegion);
     }
 
@@ -117,6 +137,10 @@ public class ExtendClaimCommand extends InClaimOwnerCommand {
             } else {
                 return EAST;
             }
+        }
+
+        boolean xAxis() {
+            return this == EAST || this == WEST;
         }
     }
 

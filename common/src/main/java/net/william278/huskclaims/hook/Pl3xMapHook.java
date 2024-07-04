@@ -43,13 +43,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 
+@PluginHook(
+        name = "Pl3xMap",
+        register = PluginHook.Register.ON_ENABLE
+)
 public class Pl3xMapHook extends MapHook {
 
     private static final String CLAIMS_LAYER = "claim_markers";
     private final ConcurrentHashMap<ClaimWorld, ConcurrentLinkedQueue<Claim>> claims = new ConcurrentHashMap<>();
 
     public Pl3xMapHook(@NotNull HuskClaims plugin) {
-        super("Pl3xMap", plugin);
+        super(plugin);
     }
 
     @NotNull
@@ -158,13 +162,13 @@ public class Pl3xMapHook extends MapHook {
 
                 if (claimQueue != null) {
                     claimQueue.forEach(claim -> {
-                        final Optional<TextColor> color = hook.getClaimColor(claim, claimWorld);
+                        final Optional<TextColor> color = hook.getClaimColor(claim);
                         if (color.isEmpty()) {
                             return;
                         }
 
                         //used to see child claims above parent claims
-                        final int weight = !claim.isChildClaim(claimWorld) ? claim.getOwner().map(o -> 2).orElse(1) : 0;
+                        final int weight = !claim.isChildClaim() ? claim.getOwner().map(o -> 2).orElse(1) : 0;
 
                         markers.add(Marker.rectangle(
                                 hook.getClaimMarkerKey(claim, world.get()),

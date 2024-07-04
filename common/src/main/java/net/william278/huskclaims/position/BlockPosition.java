@@ -45,6 +45,14 @@ public interface BlockPosition {
     int getBlockZ();
 
     /**
+     * Get the long chunk coordinates of the block position.
+     *
+     * @return the long chunk coordinates
+     * @since 1.0
+     */
+    long getLongChunkCoords();
+
+    /**
      * Get the square surface area between two block positions
      *
      * @param other The other block position
@@ -52,7 +60,7 @@ public interface BlockPosition {
      * @since 1.0
      */
     default int getSurfaceArea(@NotNull BlockPosition other) {
-        return Math.abs(getBlockX() - other.getBlockX()) * Math.abs(getBlockZ() - other.getBlockZ());
+        return (1 + Math.abs(getBlockX() - other.getBlockX())) * (1 + Math.abs(getBlockZ() - other.getBlockZ()));
     }
 
     /**

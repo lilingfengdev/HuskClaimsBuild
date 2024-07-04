@@ -59,7 +59,7 @@ public class UserClaimsListCommand extends ClaimsListCommand implements UserList
     public void execute(@NotNull CommandUser executor, @NotNull String[] args) {
         final Optional<User> optionalUser = resolveUser(executor, args);
         final SortOption sort = parseSortArg(args, 1)
-                .or(() -> parseSortArg(args, 0)).orElse(SortOption.DIMENSION);
+                .or(() -> parseSortArg(args, 0)).orElse(SortOption.WORLD);
         final boolean ascend = parseOrderArg(args, 2)
                 .or(() -> parseOrderArg(args, 1)).orElse(false);
         final int page = parseIntArg(args, 3).or(() -> parseIntArg(args, 2)).orElse(1);

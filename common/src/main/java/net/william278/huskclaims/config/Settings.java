@@ -24,6 +24,7 @@ import de.exlll.configlib.Comment;
 import de.exlll.configlib.Configuration;
 import lombok.*;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.william278.cloplib.listener.InspectorCallbackProvider;
 import net.william278.cloplib.operation.OperationType;
 import net.william278.huskclaims.HuskClaims;
 import net.william278.huskclaims.claim.ClaimingMode;
@@ -211,8 +212,22 @@ public final class Settings {
         @Comment("Claim inspection tool (right click with this to inspect claims)")
         private String inspectionTool = "minecraft:stick";
 
+        @Comment("Model data settings for the inspection tool")
+        private ModelDataSettings inspectionToolModelData = new ModelDataSettings();
+
         @Comment("Claim creation & resize tool (right click with this to create/resize claims)")
         private String claimTool = "minecraft:golden_shovel";
+
+        @Comment("Model data settings for the claim tool")
+        private ModelDataSettings claimToolModelData = new ModelDataSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class ModelDataSettings {
+            private boolean required = false;
+            private int modelData = 0;
+        }
 
         @Comment("Require players to hold the claim tool to use claim commands (e.g. /claim <radius>, /extendclaim)")
         private boolean requireToolForCommands = true;
@@ -257,8 +272,36 @@ public final class Settings {
 
         }
 
+        @Comment("Settings for banning users from claims")
+        private BanSettings bans = new BanSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class BanSettings {
+
+            @Comment({"Whether to let users ban others from their claims (prevent them from entering) using /claimban",
+                    "Also requires the MANAGE_BANS privilege (by default, restricted to those with 'manage' trust)"})
+            private boolean enabled = false;
+
+        }
+
         public boolean isWorldUnclaimable(@NotNull World world) {
             return unclaimableWorlds.stream().anyMatch(world.getName()::equalsIgnoreCase);
+        }
+
+        @NotNull
+        public InspectorCallbackProvider.InspectionTool getInspectionToolData() {
+            return new InspectorCallbackProvider.InspectionTool(
+                    inspectionTool, inspectionToolModelData.isRequired(), inspectionToolModelData.getModelData()
+            );
+        }
+
+        @NotNull
+        public InspectorCallbackProvider.InspectionTool getClaimToolData() {
+            return new InspectorCallbackProvider.InspectionTool(
+                    claimTool, claimToolModelData.isRequired(), claimToolModelData.getModelData()
+            );
         }
 
     }
@@ -441,7 +484,7 @@ public final class Settings {
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public static class SignSettings {
             @Comment("Whether to notify users with /signspy on when signs are placed.edited. Requires Minecraft 1.19.4+"
-                    + "Requires Minecraft 1.19.4+")
+                     + "Requires Minecraft 1.19.4+")
             private boolean notifyModerators = true;
 
             @Comment("Whether to filter messages")
@@ -464,10 +507,10 @@ public final class Settings {
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public static class DropSettings {
             @Comment("Whether to lock ground items dropped by players when they die from being picked up by others")
-            private boolean lockItems = false;
+            private boolean lockItems = true;
 
             @Comment("Whether to also prevent death drops from being destroyed by lava, fire, cacti, etc.")
-            private boolean preventDestruction = false;
+            private boolean preventDestruction = true;
         }
 
     }
@@ -553,6 +596,16 @@ public final class Settings {
         @NoArgsConstructor(access = AccessLevel.PRIVATE)
         public static class PlaceholderSettings {
             @Comment("Whether to hook into PlaceholderAPI to provide a HuskClaims placeholder expansion")
+            private boolean enabled = true;
+        }
+
+        private WorldGuardSettings worldGuard = new WorldGuardSettings();
+
+        @Getter
+        @Configuration
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        public static class WorldGuardSettings {
+            @Comment("Whether to hook into WorldGuard to provide a flag to deny claiming in WorldGuard regions")
             private boolean enabled = true;
         }
 

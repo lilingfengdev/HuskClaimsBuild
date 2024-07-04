@@ -35,6 +35,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Map;
 
 public interface BukkitEventDispatcher extends EventDispatcher {
 
@@ -139,4 +140,24 @@ public interface BukkitEventDispatcher extends EventDispatcher {
         return new BukkitTransferClaimEvent(user, claim, claimWorld, newOwner, getPlugin());
     }
 
+    @Override
+    @NotNull
+    default ClaimBanEvent getClaimBanEvent(@NotNull OnlineUser user, @NotNull Claim claim,
+                                           @NotNull ClaimWorld world, @NotNull User bannedUser) {
+        return new BukkitClaimBanEvent(user, claim, world, bannedUser, getPlugin());
+    }
+
+    @Override
+    @NotNull
+    default ClaimUnBanEvent getClaimUnBanEvent(@NotNull OnlineUser user, @NotNull Claim claim,
+                                               @NotNull ClaimWorld world, @NotNull User bannedUser) {
+        return new BukkitClaimUnBanEvent(user, claim, world, bannedUser, getPlugin());
+    }
+
+    @Override
+    @NotNull
+    default ClaimWorldPruneEvent getClaimWorldPruneEvent(@NotNull ClaimWorld claimWorld,
+                                                         @NotNull Map<User, Long> userMap) {
+        return new BukkitClaimWorldPruneEvent(claimWorld, userMap, getPlugin());
+    }
 }

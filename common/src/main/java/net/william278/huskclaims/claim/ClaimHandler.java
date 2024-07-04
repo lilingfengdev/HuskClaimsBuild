@@ -72,13 +72,14 @@ public interface ClaimHandler extends Handler {
             final Claim fc = fromClaim.get();
             final Claim tc = toClaim.get();
             if (getPlugin().fireIsCancelledExitClaimEvent(online, fc, world, fromPos, toPos)
+                    || world.isBannedFromClaim(online, tc, getPlugin()) // Check if the user is banned before firing enter event
                     || getPlugin().fireIsCancelledEnterClaimEvent(online, tc, world, fromPos, toPos)) {
                 return true;
             }
 
             // Send an entry message
             if (getPlugin().getSettings().getClaims().isSendEntryMessage()
-                    && !tc.isChildClaim(world) && !fc.isChildClaim(world)) {
+                    && !tc.isChildClaim() && !fc.isChildClaim()) {
                 getPlugin().getLocales().getLocale("claim_entered", tc.getOwnerName(world, getPlugin()))
                         .ifPresent(online::sendMessage);
             }
@@ -86,12 +87,13 @@ public interface ClaimHandler extends Handler {
         } else if (toClaim.isPresent()) {
             // Handle wilderness -> claim movement
             final Claim tc = toClaim.get();
-            if (getPlugin().fireIsCancelledEnterClaimEvent(online, tc, world, fromPos, toPos)) {
+            if (world.isBannedFromClaim(online, tc, getPlugin())
+                    || getPlugin().fireIsCancelledEnterClaimEvent(online, tc, world, fromPos, toPos)) {
                 return true;
             }
 
             // Send an entry message
-            if (getPlugin().getSettings().getClaims().isSendEntryMessage() && !tc.isChildClaim(world)) {
+            if (getPlugin().getSettings().getClaims().isSendEntryMessage() && !tc.isChildClaim()) {
                 getPlugin().getLocales().getLocale("claim_entered", tc.getOwnerName(world, getPlugin()))
                         .ifPresent(online::sendMessage);
             }
@@ -103,7 +105,7 @@ public interface ClaimHandler extends Handler {
             }
 
             // Send an exit message
-            if (getPlugin().getSettings().getClaims().isSendExitMessage() && !fc.isChildClaim(world)) {
+            if (getPlugin().getSettings().getClaims().isSendExitMessage() && !fc.isChildClaim()) {
                 getPlugin().getLocales().getLocale("claim_exited", fc.getOwnerName(world, getPlugin()))
                         .ifPresent(online::sendMessage);
             }

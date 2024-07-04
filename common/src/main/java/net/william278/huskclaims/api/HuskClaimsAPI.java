@@ -19,6 +19,7 @@
 
 package net.william278.huskclaims.api;
 
+import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import net.william278.cloplib.operation.Operation;
@@ -800,7 +801,7 @@ public class HuskClaimsAPI {
      * @throws IllegalArgumentException if the claim is not a child claim
      */
     public void deleteChildClaim(@NotNull ClaimWorld world, @NotNull Claim claim) {
-        final Claim parent = claim.getParent(world).orElseThrow(
+        final Claim parent = claim.getParent().orElseThrow(
                 () -> new IllegalArgumentException("Claim is not a child claim or parent could not be found")
         );
         plugin.runAsync(() -> plugin.deleteChildClaim(world, parent, claim));
@@ -871,7 +872,7 @@ public class HuskClaimsAPI {
      */
     public boolean isPrivilegeAllowed(@NotNull TrustLevel.Privilege privilege, @NotNull User user,
                                       @NotNull Claim claim, @NotNull ClaimWorld world) {
-        return claim.isPrivilegeAllowed(privilege, user, world, plugin);
+        return claim.isPrivilegeAllowed(privilege, user, plugin);
     }
 
     /**
@@ -1029,7 +1030,7 @@ public class HuskClaimsAPI {
     @Unmodifiable
     @NotNull
     public List<UserGroup> getUserGroups(@NotNull UUID userUuid) {
-        return plugin.getUserGroups(userUuid);
+        return Lists.newArrayList(plugin.getUserGroups(userUuid));
     }
 
     /**

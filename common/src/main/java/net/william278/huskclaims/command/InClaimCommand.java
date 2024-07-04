@@ -63,7 +63,8 @@ public abstract class InClaimCommand extends OnlineUserCommand {
             return;
         }
 
-        final Optional<Claim> optionalClaim = optionalWorld.get().getClaimAt(user.getPosition());
+        final ClaimWorld world = optionalWorld.get();
+        final Optional<Claim> optionalClaim = world.getClaimAt(user.getPosition());
         if (optionalClaim.isEmpty()) {
             plugin.getLocales().getLocale("error_not_in_claim")
                     .ifPresent(user::sendMessage);
@@ -71,15 +72,14 @@ public abstract class InClaimCommand extends OnlineUserCommand {
         }
 
         final Claim claim = optionalClaim.get();
-        final ClaimWorld world = optionalWorld.get();
-        if (privilege != null && !claim.isPrivilegeAllowed(privilege, user, world, plugin)
-                && !hasPermission(user, "other")) {
+        if (privilege != null && !claim.isPrivilegeAllowed(privilege, user, plugin)
+            && !hasPermission(user, "other")) {
             plugin.getLocales().getLocale("no_claim_privilege")
                     .ifPresent(user::sendMessage);
             return;
         }
 
-        this.execute(user, optionalWorld.get(), optionalClaim.get(), args);
+        this.execute(user, world, claim, args);
     }
 
     /**
@@ -87,21 +87,27 @@ public abstract class InClaimCommand extends OnlineUserCommand {
      *
      * @param executor  The executor
      * @param trustable The trustable
-     * @param world     The serverWorld
      * @param claim     The claim
      * @return if the executor has access
      * @since 1.0
      */
     protected boolean checkUserHasAccess(@NotNull OnlineUser executor, @NotNull Trustable trustable,
-                                         @NotNull ClaimWorld world, @NotNull Claim claim) {
+                                         @NotNull Claim claim) {
         if (claim.getOwner().map(o -> o.equals(executor.getUuid())).orElse(false)) {
             return true;
         }
 
+        // Check the trustable is not banned from the claim
+        if (trustable instanceof User user && claim.isUserBanned(user)) {
+            plugin.getLocales().getLocale("error_user_banned", user.getName())
+                    .ifPresent(executor::sendMessage);
+            return false;
+        }
+
         // Check if the executor is allowed to set the trust level of the trustable
-        final Optional<Integer> trustableWeight = claim.getEffectiveTrustLevel(trustable, world, plugin)
+        final Optional<Integer> trustableWeight = claim.getEffectiveTrustLevel(trustable, plugin)
                 .map(TrustLevel::getWeight);
-        final int executorWeight = claim.getEffectiveTrustLevel(executor, world, plugin)
+        final int executorWeight = claim.getEffectiveTrustLevel(executor, plugin)
                 .map(TrustLevel::getWeight).orElse(Integer.MAX_VALUE);
         if (trustableWeight.isPresent() && executorWeight < trustableWeight.get()) {
             plugin.getLocales().getLocale("error_trust_level_rank", trustable.getTrustIdentifier(plugin))

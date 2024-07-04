@@ -21,7 +21,7 @@ package net.william278.huskclaims.database;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Queues;
+import com.google.common.collect.Sets;
 import com.google.gson.JsonSyntaxException;
 import com.zaxxer.hikari.HikariDataSource;
 import net.william278.huskclaims.HuskClaims;
@@ -39,8 +39,6 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 
 @SuppressWarnings("DuplicatedCode")
@@ -367,7 +365,7 @@ public class MySqlDatabase extends Database {
 
     @NotNull
     @Override
-    public ConcurrentLinkedQueue<UserGroup> getUserGroups(@NotNull UUID uuid) {
+    public Set<UserGroup> getUserGroups(@NotNull UUID uuid) {
         try (Connection connection = getConnection()) {
             try (PreparedStatement statement = connection.prepareStatement(format("""
                     SELECT `name`, `members`
@@ -375,7 +373,7 @@ public class MySqlDatabase extends Database {
                     WHERE `uuid` = ?"""))) {
                 statement.setString(1, uuid.toString());
                 final ResultSet resultSet = statement.executeQuery();
-                final ConcurrentLinkedQueue<UserGroup> userGroups = Queues.newConcurrentLinkedQueue();
+                final Set<UserGroup> userGroups = Sets.newHashSet();
                 while (resultSet.next()) {
                     userGroups.add(new UserGroup(
                             uuid,
@@ -390,33 +388,40 @@ public class MySqlDatabase extends Database {
         } catch (SQLException e) {
             plugin.log(Level.SEVERE, "Failed to fetch user groups from table", e);
         }
-        return Queues.newConcurrentLinkedQueue();
+        return Sets.newHashSet();
     }
 
     @NotNull
     @Override
-    public Set<UserGroup> getAllUserGroups() {
+    public Map<UUID, Set<UserGroup>> getAllUserGroups() {
         try (Connection connection = getConnection()) {
             try (PreparedStatement statement = connection.prepareStatement(format("""
                     SELECT `uuid`, `name`, `members`
                     FROM `%user_group_data%`"""))) {
                 final ResultSet resultSet = statement.executeQuery();
-                final Set<UserGroup> userGroups = ConcurrentHashMap.newKeySet();
+                final Map<UUID, Set<UserGroup>> userGroups = Maps.newHashMap();
                 while (resultSet.next()) {
-                    userGroups.add(new UserGroup(
+                    final UserGroup userGroup = new UserGroup(
                             UUID.fromString(resultSet.getString("uuid")),
                             resultSet.getString("name"),
                             plugin.getUserListFromJson(new String(
                                     resultSet.getBytes("members"), StandardCharsets.UTF_8
                             ))
-                    ));
+                    );
+                    userGroups.compute(userGroup.groupOwner(), (key, value) -> {
+                        if (value == null) {
+                            value = Sets.newHashSet();
+                        }
+                        value.add(userGroup);
+                        return value;
+                    });
                 }
                 return userGroups;
             }
         } catch (SQLException e) {
             plugin.log(Level.SEVERE, "Failed to fetch user groups from table", e);
         }
-        return ConcurrentHashMap.newKeySet();
+        return Maps.newHashMap();
     }
 
     @Override
@@ -485,10 +490,11 @@ public class MySqlDatabase extends Database {
                             UUID.fromString(resultSet.getString("world_uuid")),
                             resultSet.getString("world_environment")
                     );
-                    final ClaimWorld claimWorld = plugin.getClaimWorldFromJson(
+                    final int id = resultSet.getInt("id");
+                    final ClaimWorld claimWorld = plugin.getClaimWorldFromJson(id,
                             new String(resultSet.getBytes("data"), StandardCharsets.UTF_8)
                     );
-                    claimWorld.updateId(resultSet.getInt("id"));
+                    claimWorld.updateId(id);
                     if (!plugin.getSettings().getClaims().isWorldUnclaimable(world)) {
                         worlds.put(world, claimWorld);
                     }
@@ -515,10 +521,11 @@ public class MySqlDatabase extends Database {
                             UUID.fromString(resultSet.getString("world_uuid")),
                             resultSet.getString("world_environment")
                     );
-                    final ClaimWorld claimWorld = plugin.getClaimWorldFromJson(
+                    final int id = resultSet.getInt("id");
+                    final ClaimWorld claimWorld = plugin.getClaimWorldFromJson(id,
                             new String(resultSet.getBytes("data"), StandardCharsets.UTF_8)
                     );
-                    claimWorld.updateId(resultSet.getInt("id"));
+                    claimWorld.updateId(id);
                     worlds.put(new ServerWorld(resultSet.getString("server_name"), world), claimWorld);
                 }
             }
@@ -536,13 +543,17 @@ public class MySqlDatabase extends Database {
         try (Connection connection = getConnection()) {
             try (PreparedStatement statement = connection.prepareStatement(format("""
                     INSERT INTO `%claim_data%` (`world_uuid`, `world_name`, `world_environment`, `server_name`, `data`)
-                    VALUES (?, ?, ?, ?, ?)"""))) {
+                    VALUES (?, ?, ?, ?, ?)"""), Statement.RETURN_GENERATED_KEYS)) {
                 statement.setString(1, world.getUuid().toString());
                 statement.setString(2, world.getName());
                 statement.setString(3, world.getEnvironment());
                 statement.setString(4, plugin.getServerName());
                 statement.setBytes(5, plugin.getGson().toJson(claimWorld).getBytes(StandardCharsets.UTF_8));
-                claimWorld.updateId(statement.executeUpdate());
+                statement.executeUpdate();
+                final ResultSet resultSet = statement.getGeneratedKeys();
+                if (resultSet.next()) {
+                    claimWorld.updateId(resultSet.getInt(1));
+                }
             }
         } catch (SQLException | JsonSyntaxException e) {
             plugin.log(Level.SEVERE, "Failed to create claim world in table", e);

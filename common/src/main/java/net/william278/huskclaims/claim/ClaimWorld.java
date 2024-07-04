@@ -24,9 +24,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import net.william278.cloplib.operation.Operation;
 import net.william278.cloplib.operation.OperationType;
 import net.william278.huskclaims.HuskClaims;
@@ -36,37 +38,168 @@ import net.william278.huskclaims.position.Position;
 import net.william278.huskclaims.user.OnlineUser;
 import net.william278.huskclaims.user.Preferences;
 import net.william278.huskclaims.user.User;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.stream.Collectors;
 
 @Getter
-@NoArgsConstructor(access = AccessLevel.PRIVATE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ClaimWorld {
 
+    // The UUID of the admin claim
+    public final static UUID ADMIN_CLAIM = UUID.fromString("00000000-0000-0000-0000-000000000000");
+    // The current schema version
+    public static final int CURRENT_SCHEMA = 1;
+
+    // The ID of the ClaimWorld
     private transient int id;
-    @Expose
-    private CopyOnWriteArraySet<Claim> claims;
+
     @Expose
     @SerializedName("user_cache")
     private ConcurrentMap<UUID, String> userCache;
     @Expose
     @SerializedName("wilderness_flags")
     private Set<OperationType> wildernessFlags;
+    @Expose
+    @SerializedName("cached_claims")
+    private Long2ObjectOpenHashMap<Set<Claim>> cachedClaims;
+    @Expose(deserialize = false, serialize = false)
+    private transient Map<UUID, Set<Claim>> userClaims;
+    @Expose
+    @Setter
+    @SerializedName("schema_version")
+    private int schemaVersion;
 
     private ClaimWorld(@NotNull HuskClaims plugin) {
         this.id = 0;
-        this.claims = Sets.newCopyOnWriteArraySet();
         this.userCache = Maps.newConcurrentMap();
         this.wildernessFlags = Sets.newHashSet(plugin.getSettings().getClaims().getWildernessRules());
+        this.cachedClaims = new Long2ObjectOpenHashMap<>();
+        this.userClaims = Maps.newConcurrentMap();
+        this.schemaVersion = CURRENT_SCHEMA;
     }
 
+    /**
+     * Convert a legacy ClaimWorld instance to a new ClaimWorld instance
+     *
+     * @param claims          The claims to convert
+     * @param userCache       The user cache to convert
+     * @param wildernessFlags The wilderness flags to convert
+     * @return the new ClaimWorld instance
+     * @since 1.3
+     */
     @NotNull
+    @ApiStatus.Internal
+    public static ClaimWorld convert(@NotNull Set<Claim> claims,
+                                     @NotNull Map<UUID, String> userCache, @NotNull Set<OperationType> wildernessFlags) {
+        final ClaimWorld world = new ClaimWorld();
+        world.userCache = new ConcurrentHashMap<>(userCache);
+        world.wildernessFlags = Sets.newConcurrentHashSet(wildernessFlags);
+        world.cachedClaims = new Long2ObjectOpenHashMap<>();
+        world.userClaims = Maps.newConcurrentMap();
+        world.schemaVersion = CURRENT_SCHEMA;
+        claims.forEach(world::cacheClaim);
+        return world;
+    }
+
+    /**
+     * Create a new ClaimWorld instance
+     *
+     * @param plugin the HuskClaims plugin instance
+     * @return the new ClaimWorld instance
+     * @since 1.0
+     */
+    @NotNull
+    @ApiStatus.Internal
     public static ClaimWorld create(@NotNull HuskClaims plugin) {
         return new ClaimWorld(plugin);
+    }
+
+    /**
+     * Update the ID of the ClaimWorld
+     *
+     * @param id the new ID
+     * @since 1.0
+     */
+    @ApiStatus.Internal
+    public void updateId(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Add a claim to the ClaimWorld
+     *
+     * @param claim the claim to add
+     * @since 1.0
+     */
+    public void addClaim(@NotNull Claim claim) {
+        cacheClaim(claim);
+    }
+
+    /**
+     * Remove a claim from the ClaimWorld
+     *
+     * @param claim the claim to remove
+     * @since 1.0
+     */
+    public void removeClaim(@NotNull Claim claim) {
+        if (claim.isChildClaim()) {
+            throw new IllegalArgumentException("Cannot remove a child claim directly");
+        }
+
+        final UUID owner = claim.getOwner().orElse(ADMIN_CLAIM);
+        final Set<Claim> ownedClaims = userClaims.get(owner);
+        if (ownedClaims != null) {
+            ownedClaims.remove(claim);
+        }
+
+        claim.getRegion().getChunks().forEach(chunk -> {
+            final long asLong = ((long) chunk[0] << 32) | (chunk[1] & 0xffffffffL);
+            final Set<Claim> chunkClaims = cachedClaims.get(asLong);
+            if (chunkClaims != null) {
+                chunkClaims.remove(claim);
+            }
+        });
+    }
+
+    /**
+     * Resize a claim in the ClaimWorld, caching the new chunks.
+     * <p>
+     * It is important that this method is used to resize claims, instead of simply just setting the new claim region,
+     * as this method ensures that the claim's chunks are correctly cached.
+     *
+     * @param claim     the claim to resize
+     * @param newRegion the new region of the claim
+     * @since 1.3.1
+     */
+    public void resizeClaim(@NotNull Claim claim, @NotNull Region newRegion) {
+        if (claim.isChildClaim()) {
+            throw new IllegalArgumentException("Cannot resize a child claim in a world context");
+        }
+
+        // Clear old region chunks
+        final Region oldRegion = claim.getRegion();
+        oldRegion.getChunks().forEach(chunk -> {
+            final long asLong = ((long) chunk[0] << 32) | (chunk[1] & 0xffffffffL);
+            final Set<Claim> chunkClaims = cachedClaims.get(asLong);
+            if (chunkClaims != null) {
+                chunkClaims.remove(claim);
+            }
+        });
+
+        // Set new region, cache new chunks
+        claim.setRegion(newRegion);
+        newRegion.getChunks().forEach(chunk -> {
+            final long asLong = ((long) chunk[0] << 32) | (chunk[1] & 0xffffffffL);
+            final Set<Claim> chunkClaims = cachedClaims.computeIfAbsent(asLong, k -> Sets.newConcurrentHashSet());
+            chunkClaims.add(claim);
+        });
     }
 
     /**
@@ -75,6 +208,7 @@ public class ClaimWorld {
      * @param plugin the HuskClaims plugin instance
      * @return the name of the ClaimWorld
      * @throws IllegalStateException if the ClaimWorld is not registered
+     * @since 1.0
      */
     @NotNull
     public String getName(@NotNull HuskClaims plugin) {
@@ -84,53 +218,161 @@ public class ClaimWorld {
                 .findFirst().orElseThrow(() -> new IllegalStateException("ClaimWorld not registered"));
     }
 
+    /**
+     * Get the number of claim blocks owned by a specific user in this world
+     * (i.e., the total surface area of all claims owned by the user in this world)
+     *
+     * @param owner The user to check
+     * @return the number of claim blocks owned by the user
+     * @since 1.0
+     */
     public long getSurfaceClaimedBy(@NotNull User owner) {
         return getClaimsByUser(owner.getUuid()).stream().mapToInt(c -> c.getRegion().getSurfaceArea()).sum();
     }
 
-    public boolean removeClaimsBy(@NotNull User owner) {
-        return claims.removeIf(claim -> claim.getOwner().map(owner.getUuid()::equals).orElse(false));
+    /**
+     * Remove all claims owned by a specific user
+     *
+     * @param owner The user to remove claims for
+     * @return if any claims were removed
+     * @since 1.0
+     */
+    public boolean removeClaimsBy(@Nullable User owner) {
+        final UUID uuid = owner != null ? owner.getUuid() : ADMIN_CLAIM;
+        if (!userClaims.containsKey(uuid)) {
+            return false;
+        }
+        return userClaims.remove(uuid).stream().allMatch(claim -> claim.getRegion().getChunks().stream().allMatch(
+                (chunk) -> {
+                    final long asLong = ((long) chunk[0] << 32) | (chunk[1] & 0xffffffffL);
+                    final Set<Claim> chunkClaims = cachedClaims.get(asLong);
+                    if (chunkClaims != null) {
+                        chunkClaims.remove(claim);
+                        return true;
+                    }
+                    return false;
+                }
+        ));
     }
 
+    /**
+     * Delete all admin claims in this world
+     *
+     * @return if any admin claims were removed
+     * @since 1.0
+     */
     public boolean removeAdminClaims() {
-        return claims.removeIf(claim -> claim.getOwner().isEmpty());
+        return removeClaimsBy(null);
     }
 
+    /**
+     * Get a cached user by UUID
+     *
+     * @param uuid The UUID of the user
+     * @return an optional containing the user if they are cached in the world
+     * @since 1.0
+     */
     public Optional<User> getUser(@NotNull UUID uuid) {
         return Optional.ofNullable(userCache.get(uuid)).map(name -> User.of(uuid, name));
     }
 
+    /**
+     * Get all claims owned by a specific user in this world
+     *
+     * @param uuid The UUID of the user
+     * @return a list of all claims owned by the user
+     * @since 1.0
+     */
     @NotNull
+    @Unmodifiable
     public List<Claim> getClaimsByUser(@Nullable UUID uuid) {
-        return claims.stream().filter(claim -> claim.getOwner()
-                .map(o -> o.equals(uuid))
-                .orElse(uuid == null)).toList();
+        return List.copyOf(userClaims.getOrDefault(uuid, Collections.emptySet()));
     }
 
+    /**
+     * Get all admin claims in this world
+     *
+     * @return a list of all admin claims in this world
+     * @since 1.0
+     */
     @NotNull
+    @Unmodifiable
     public List<Claim> getAdminClaims() {
-        return getClaimsByUser(null);
+        return getClaimsByUser(ADMIN_CLAIM);
     }
 
+    /**
+     * Get the parent claim at a specific position
+     *
+     * @param position The position to check
+     * @return the parent claim at the position if one exists
+     * @since 1.0
+     */
     public Optional<Claim> getParentClaimAt(@NotNull BlockPosition position) {
-        return getClaims().stream().filter(claim -> claim.getRegion().contains(position)).findFirst();
+        final long asLong = position.getLongChunkCoords();
+        return Optional.ofNullable(cachedClaims.get(asLong)).stream()
+                .flatMap(Collection::stream)
+                .filter(c -> c.getRegion().contains(position))
+                .findFirst();
     }
 
+    /**
+     * Get a claim at a specific position (including child claims)
+     *
+     * @param position The position to check
+     * @return the claim at the position, if one exists
+     * @since 1.0
+     */
     public Optional<Claim> getClaimAt(@NotNull BlockPosition position) {
         return getParentClaimAt(position).map(parent -> parent.getChildren().stream()
                 .filter(c -> c.getRegion().contains(position)).findFirst()
                 .orElse(parent));
     }
 
+    /**
+     * Get all claims in this world
+     *
+     * @return a set of all claims in this world
+     * @since 1.0
+     */
     @NotNull
-    public List<Claim> getParentClaimsOverlapping(@NotNull Region region) {
-        return getClaims().stream().filter(claim -> claim.getRegion().overlaps(region)).toList();
+    @Unmodifiable
+    public Set<Claim> getClaims() {
+        return userClaims.values()
+                .stream()
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
     }
 
+    /**
+     * Get a list of claims overlapping a region
+     *
+     * @param region The region to check
+     * @return list of overlapping claims
+     * @since 1.0
+     */
+    @NotNull
+    public List<Claim> getParentClaimsOverlapping(@NotNull Region region) {
+        final List<Claim> overlappingClaims = Lists.newArrayList();
+        region.getChunks().forEach(chunk -> {
+            final long asLong = ((long) chunk[0] << 32) | (chunk[1] & 0xffffffffL);
+            cachedClaims.getOrDefault(asLong, Collections.emptySet()).stream()
+                    .filter(claim -> claim.getRegion().overlaps(region))
+                    .forEach(overlappingClaims::add);
+        });
+        return overlappingClaims.stream().distinct().toList();
+    }
+
+    /**
+     * Cache a user in the user cache
+     *
+     * @param user the user to cache
+     * @since 1.0
+     */
+    @ApiStatus.Internal
     public void cacheUser(@NotNull User user) {
         userCache.put(user.getUuid(), user.getName());
     }
-
 
     /**
      * Get the claims a region overlaps with, except for certain claims
@@ -172,15 +414,77 @@ public class ClaimWorld {
         return !getParentClaimsOverlapping(region, exceptFor).isEmpty();
     }
 
+    /**
+     * Get if a region is claimed by a specific user
+     *
+     * @param operation The operation to check
+     * @param plugin    The HuskClaims plugin instance
+     * @return if the operation is allowed
+     * @since 1.0
+     */
     public boolean isOperationAllowed(@NotNull Operation operation, @NotNull HuskClaims plugin) {
         return getClaimAt((Position) operation.getOperationPosition())
                 .map(claim -> isOperationAllowedInClaim(operation, claim, plugin))
                 .orElse(isOperationAllowedInWilderness(operation, plugin));
     }
 
+    /**
+     * Get the total number of claims in this world
+     *
+     * @return the total number of claims in this world
+     * @since 1.0
+     */
+    public int getClaimCount() {
+        return userClaims.values().stream().mapToInt(Set::size).sum();
+    }
+
+    // Check if a user is banned from a claim
+    @ApiStatus.Internal
+    public boolean isBannedFromClaim(@NotNull OnlineUser user, @NotNull Claim claim, @NotNull HuskClaims plugin) {
+        if (claim.isUserBanned(user) && !isIgnoringClaims(user, plugin)) {
+            plugin.getLocales().getLocale("user_banned_you", claim.getOwnerName(this, plugin))
+                    .ifPresent(user::sendMessage);
+            return true;
+        }
+        return false;
+    }
+
+    // Load claims (caching all of them)
+    protected void loadClaims(@NotNull Set<Claim> claims) {
+        this.cachedClaims = new Long2ObjectOpenHashMap<>();
+        this.userCache = Maps.newConcurrentMap();
+        this.userClaims = Maps.newConcurrentMap();
+        this.wildernessFlags = Sets.newConcurrentHashSet();
+        claims.forEach(this::cacheClaim);
+    }
+
+    // Cache a user claim
+    private void cacheOwnedClaim(@NotNull Claim claim) {
+        final Set<Claim> ownedClaims = userClaims.computeIfAbsent(claim.getOwner().orElse(ADMIN_CLAIM), k -> Sets.newConcurrentHashSet());
+        ownedClaims.add(claim);
+    }
+
+    // Cache a claim in the world
+    private void cacheClaim(@NotNull Claim claim) {
+        if (claim.isChildClaim()) {
+            throw new IllegalArgumentException("Cannot cache a child claim in a world context");
+        }
+
+        // Set parents
+        claim.getChildren().forEach(c -> c.setParent(claim));
+        cacheOwnedClaim(claim);
+
+        claim.getRegion().getChunks().forEach(chunk -> {
+            final long asLong = ((long) chunk[0] << 32) | (chunk[1] & 0xffffffffL);
+            final Set<Claim> chunkClaims = cachedClaims.computeIfAbsent(asLong, k -> Sets.newConcurrentHashSet());
+            chunkClaims.add(claim);
+        });
+    }
+
+    // Check if an operation is allowed in a specific claim
     private boolean isOperationAllowedInClaim(@NotNull Operation operation, @NotNull Claim claim,
                                               @NotNull HuskClaims plugin) {
-        if (isOperationIgnored(operation, plugin) || claim.isOperationAllowed(operation, this, plugin)) {
+        if (isOperationIgnored(operation, plugin) || claim.isOperationAllowed(operation, plugin)) {
             return true;
         }
 
@@ -193,6 +497,7 @@ public class ClaimWorld {
         return false;
     }
 
+    // Check if an operation is allowed in the wilderness
     private boolean isOperationAllowedInWilderness(@NotNull Operation operation, @NotNull HuskClaims plugin) {
         if (wildernessFlags.contains(operation.getType())) {
             return true;
@@ -224,14 +529,6 @@ public class ClaimWorld {
             return false;
         }
         return toggled;
-    }
-
-    public int getClaimCount() {
-        return getClaims().size();
-    }
-
-    public void updateId(int id) {
-        this.id = id;
     }
 
     @Override

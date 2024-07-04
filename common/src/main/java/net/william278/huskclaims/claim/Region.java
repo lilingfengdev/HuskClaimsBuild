@@ -24,15 +24,17 @@ import com.google.common.collect.Maps;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import net.william278.huskclaims.highlighter.Highlightable;
 import net.william278.huskclaims.position.BlockPosition;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Range;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static net.william278.huskclaims.highlighter.Highlightable.Type.getClaimType;
 
@@ -257,7 +259,7 @@ public class Region {
 
         // Add corner points
         final Highlightable.Type corner = getClaimType(overlap, isChild, isAdmin, true);
-        getCorners().stream().filter(c -> c.distanceFrom(viewer) < range).forEach((c) -> positions.put(c, corner));
+        getCorners().stream().filter(c -> c.distanceFrom(viewer) <= range).forEach((c) -> positions.put(c, corner));
 
         return positions;
     }
@@ -265,19 +267,19 @@ public class Region {
     // X and Z edges
     private void addEdgePoints(@NotNull Map<Point, Highlightable.Type> positions, @NotNull Highlightable.Type type,
                                @NotNull BlockPosition viewer, long range) {
+        final List<Point> edgePoints = Lists.newArrayList();
         // X edges
-        for (int x = nearCorner.getBlockX() + STEP; x < farCorner.getBlockX()
-                && Math.abs(x - viewer.getBlockX()) < range; x += STEP) {
-            positions.put(Point.at(x, nearCorner.getBlockZ()), type);
-            positions.put(Point.at(x, farCorner.getBlockZ()), type);
+        for (int x = nearCorner.getBlockX() + STEP; x < farCorner.getBlockX(); x += STEP) {
+            edgePoints.add(Point.at(x, nearCorner.getBlockZ()));
+            edgePoints.add(Point.at(x, farCorner.getBlockZ()));
         }
 
         // Z edges
-        for (int z = nearCorner.getBlockZ() + STEP; z < farCorner.getBlockZ()
-                && Math.abs(z - viewer.getBlockZ()) < range; z += STEP) {
-            positions.put(Point.at(nearCorner.getBlockX(), z), type);
-            positions.put(Point.at(farCorner.getBlockX(), z), type);
+        for (int z = nearCorner.getBlockZ() + STEP; z < farCorner.getBlockZ(); z += STEP) {
+            edgePoints.add(Point.at(nearCorner.getBlockX(), z));
+            edgePoints.add(Point.at(farCorner.getBlockX(), z));
         }
+        edgePoints.stream().filter(c -> c.distanceFrom(viewer) <= range).forEach((c) -> positions.put(c, type));
     }
 
     // L-shaped corners
@@ -296,7 +298,7 @@ public class Region {
             cornerPoints.add(Point.at(nearCorner.getBlockX() + 1, farCorner.getBlockZ()));
             cornerPoints.add(Point.at(farCorner.getBlockX() - 1, farCorner.getBlockZ()));
         }
-        cornerPoints.stream().filter(c -> c.distanceFrom(viewer) < range).forEach((c) -> positions.put(c, type));
+        cornerPoints.stream().filter(c -> c.distanceFrom(viewer) <= range).forEach((c) -> positions.put(c, type));
     }
 
     /**
@@ -306,7 +308,7 @@ public class Region {
      * @since 1.0
      */
     public int getShortestEdge() {
-        return Math.min(
+        return 1 + Math.min(
                 Math.abs(farCorner.getBlockX() - nearCorner.getBlockX()),
                 Math.abs(farCorner.getBlockZ() - nearCorner.getBlockZ())
         );
@@ -319,10 +321,36 @@ public class Region {
      * @since 1.0
      */
     public int getLongestEdge() {
-        return Math.max(
+        return 1 + Math.max(
                 Math.abs(farCorner.getBlockX() - nearCorner.getBlockX()),
                 Math.abs(farCorner.getBlockZ() - nearCorner.getBlockZ())
         );
+    }
+
+    /**
+     * Returns a list of integer arrays representing the chunks within the region.
+     *
+     * @return The list of integer arrays representing the chunks
+     */
+    @NotNull
+    public Set<int[]> getChunks() {
+        final int chunkX1 = getNearCorner().getBlockX() >> 4;
+        final int chunkZ1 = getNearCorner().getBlockZ() >> 4;
+        final int chunkX2 = getFarCorner().getBlockX() >> 4;
+        final int chunkZ2 = getFarCorner().getBlockZ() >> 4;
+        final int chunkXMin = Math.min(chunkX1, chunkX2);
+        final int chunkXMax = Math.max(chunkX1, chunkX2);
+        final int chunkZMin = Math.min(chunkZ1, chunkZ2);
+        final int chunkZMax = Math.max(chunkZ1, chunkZ2);
+
+        final Set<int[]> chunks = new HashSet<>();
+        for (int x = chunkXMin; x <= chunkXMax; x++) {
+            for (int z = chunkZMin; z <= chunkZMax; z++) {
+                chunks.add(new int[]{x, z});
+            }
+        }
+
+        return chunks;
     }
 
     /**
@@ -331,13 +359,23 @@ public class Region {
      * @since 1.0
      */
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
-    @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class Point implements BlockPosition {
+
+        // We restrict the distance to +/-32000000 blocks (maximum Minecraft world size) to prevent abuse
+        private static final int RANGE = 32000000;
 
         @Expose
         private int x;
         @Expose
         private int z;
+
+        private Point(int x, int z) {
+            if (Math.abs(x) > RANGE || Math.abs(z) > RANGE) {
+                throw new IllegalArgumentException("Point coords (%s, %s) out of range (+/-%s)".formatted(x, z, RANGE));
+            }
+            this.x = x;
+            this.z = z;
+        }
 
         @NotNull
         public static Point at(int x, int z) {
@@ -355,13 +393,22 @@ public class Region {
         }
 
         @Override
+        @Range(from = -RANGE, to = RANGE)
         public int getBlockX() {
             return x;
         }
 
         @Override
+        @Range(from = -RANGE, to = RANGE)
         public int getBlockZ() {
             return z;
+        }
+
+        @Override
+        public long getLongChunkCoords() {
+            final int chunkX = x >> 4;
+            final int chunkZ = z >> 4;
+            return ((long) chunkX << 32) | (chunkZ & 0xffffffffL);
         }
 
         @Override
@@ -371,5 +418,12 @@ public class Region {
             }
             return false;
         }
+
+        // Check if a point, when modified by numberBy on either axis, is out of the supported range
+        public static boolean isOutOfRange(@NotNull BlockPosition position, int dx, int dz) {
+            return Math.abs(position.getBlockX()) + Math.abs(dx) > RANGE
+                    || Math.abs(position.getBlockZ()) + Math.abs(dz) > RANGE;
+        }
+
     }
 }

@@ -55,6 +55,7 @@ import net.william278.huskclaims.trust.UserGroup;
 import net.william278.huskclaims.user.*;
 import net.william278.huskclaims.util.BlockProvider;
 import net.william278.huskclaims.util.BukkitBlockProvider;
+import net.william278.huskclaims.util.BukkitSafeTeleportProvider;
 import net.william278.huskclaims.util.BukkitTask;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
@@ -70,6 +71,8 @@ import org.jetbrains.annotations.Nullable;
 import space.arim.morepaperlib.MorePaperLib;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -78,19 +81,20 @@ import java.util.logging.Level;
 @NoArgsConstructor
 @Getter
 public class BukkitHuskClaims extends JavaPlugin implements HuskClaims, BukkitTask.Supplier, BukkitBlockProvider,
-        BukkitPetHandler, BukkitEventDispatcher, BukkitHookProvider, PluginMessageListener {
+        BukkitSafeTeleportProvider, BukkitPetHandler, BukkitEventDispatcher, BukkitHookProvider, PluginMessageListener {
 
     private MorePaperLib morePaperLib;
     private AudienceProvider audiences;
     private final Set<TrustTag> trustTags = ConcurrentHashMap.newKeySet();
-    private final Set<GroundItem> trackedDrops = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, List<DroppedItem>> markedDrops = Maps.newHashMap();
+    private final Map<UUID, Set<GroundStack>> trackedItems = Maps.newHashMap();
     private final ConcurrentMap<String, List<User>> globalUserList = Maps.newConcurrentMap();
     private final ConcurrentMap<UUID, ClaimSelection> claimSelections = Maps.newConcurrentMap();
     private final ConcurrentMap<UUID, SavedUser> userCache = Maps.newConcurrentMap();
     private final List<Command> commands = Lists.newArrayList();
     private final HashMap<String, ClaimWorld> claimWorlds = Maps.newHashMap();
     @Setter
-    private Set<UserGroup> userGroups = ConcurrentHashMap.newKeySet();
+    private Map<UUID, Set<UserGroup>> userGroups = Maps.newConcurrentMap();
     @Setter
     private Set<Hook> hooks = Sets.newHashSet();
     @Setter
@@ -111,10 +115,15 @@ public class BukkitHuskClaims extends JavaPlugin implements HuskClaims, BukkitTa
     private Server serverName;
 
     @Override
+    public void onLoad() {
+        this.load();
+    }
+
+    @Override
     public void onEnable() {
         this.audiences = BukkitAudiences.create(this);
         this.morePaperLib = new MorePaperLib(this);
-        this.initialize();
+        this.enable();
     }
 
     @Override
@@ -138,7 +147,7 @@ public class BukkitHuskClaims extends JavaPlugin implements HuskClaims, BukkitTa
                     () -> settings.getCrossServer().isEnabled() ? "true" : "false")
             );
             metrics.addCustomChart(new SimplePie("language",
-                    () -> settings.getLanguage().toLowerCase())
+                    () -> settings.getLanguage().toLowerCase(Locale.ENGLISH))
             );
             metrics.addCustomChart(new SimplePie("database_type",
                     () -> settings.getDatabase().getType().getDisplayName())
@@ -287,6 +296,16 @@ public class BukkitHuskClaims extends JavaPlugin implements HuskClaims, BukkitTa
                         "Invalid material: " + materialBlock.getMaterialKey()
                 ).createBlockData()
         ));
+    }
+
+    @Override
+    public void startQueuePoller() {
+        getRepeatingTask(()->{
+            Runnable task = claimBlocksEditQueue.poll();
+            if (task != null) {
+                task.run();
+            }
+        }, Duration.of(100, ChronoUnit.MILLIS), Duration.of(100, ChronoUnit.MILLIS)).run();
     }
 
     @Override

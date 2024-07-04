@@ -97,25 +97,36 @@ This is a table of HuskClaims commands, how to use them, their required permissi
             <td align="center">✅</td>
         </tr>
         <tr>
-            <td>Extend another user''s claim (uses your own claim blocks)</td>
+            <td>Extend another user's claim (uses your own claim blocks)</td>
             <td><code>huskclaims.command.extendclaim.other</code></td>
             <td align="center">❌</td>
         </tr>
         <!-- /unclaim command -->
         <tr>
-            <td><code>/unclaim</code></td>
-            <td><code>/unclaim</code></td>
+            <td rowspan="2"><code>/unclaim</code></td>
+            <td rowspan="2"><code>/unclaim</code></td>
             <td>Remove the claim you are standing in</td>
             <td><code>huskclaims.command.unclaim</code></td>
             <td align="center">✅</td>
         </tr>
+        <tr>
+            <td>Remove another user's claim that you are standing in</td>
+            <td><code>huskclaims.command.unclaim.other</code></td>
+            <td align="center">❌</td>
+        </tr>
         <!-- /unclaimall command -->
         <tr>
-            <td><code>/unclaimall</code></td>
+            <td rowspan="2"><code>/unclaimall</code></td>
             <td><code>/unclaimall [confirm]</code></td>
             <td>Removes all your claims. If in admin claiming mode, removes all admin claims.</td>
             <td><code>huskclaims.command.unclaimall</code></td>
             <td align="center">✅</td>
+        </tr>
+        <tr>
+            <td><code>/unclaimall &lt;username&gt; [confirm]</code></td>
+            <td>Remove all of another user's claims.</td>
+            <td><code>huskclaims.command.unclaimall.other</code></td>
+            <td align="center">❌</td>
         </tr>
         <!-- /trust level commands -->
         <tr><th colspan="5">Trust level commands</th></tr>
@@ -236,6 +247,19 @@ This is a table of HuskClaims commands, how to use them, their required permissi
             <td><code>huskclaims.command.claimexplosions.other</code></td>
             <td align="center">❌</td>
         </tr>
+        <!-- /claimban command -->
+        <tr>
+            <td rowspan="2"><code>/claimban</code></td>
+            <td rowspan="2"><code>/claimban &lt;ban|unban|list&gt; [username]</code></td>
+            <td>Ban a user from the claim you are standing in</td>
+            <td><code>huskclaims.command.claimban</code></td>
+            <td align="center">✅</td>
+        </tr>
+        <tr>
+            <td>Ban a user from someone else's claim</td>
+            <td><code>huskclaims.command.claimban.other</code></td>
+            <td align="center">❌</td>
+        </tr>
         <!-- /usergroup command -->
         <tr><th colspan="5">User group command</th></tr>
         <tr><td colspan="5" align="center">Lets users create groups of players to easily & centrally manage claim permissions.</td></tr>
@@ -334,7 +358,7 @@ This is a table of HuskClaims commands, how to use them, their required permissi
             <td align="center">❌</td>
         </tr>
         <tr>
-            <td rowspan="9"><code>/huskclaims</code></td>
+            <td rowspan="10"><code>/huskclaims</code></td>
             <td><code>/huskclaims</code></td>
             <td>Use plugin management commands</td>
             <td><code>huskclaims.command.huskclaims</code></td>

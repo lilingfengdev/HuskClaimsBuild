@@ -19,19 +19,35 @@
 
 package net.william278.huskclaims.hook;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
+import com.google.common.base.Preconditions;
 import lombok.Getter;
 import net.william278.huskclaims.HuskClaims;
+import org.jetbrains.annotations.NotNull;
 
 @Getter
-@AllArgsConstructor(access = AccessLevel.PROTECTED)
 public abstract class Hook {
 
-    protected final String name;
     protected final HuskClaims plugin;
+    protected final PluginHook hook;
+
+    protected Hook(@NotNull HuskClaims plugin) {
+        this.plugin = plugin;
+        this.hook = getClass().getAnnotation(PluginHook.class);
+        Preconditions.checkNotNull(hook, "Hook class must be annotated with PluginHook");
+    }
+
+    @NotNull
+    public String getName() {
+        return hook.name();
+    }
+
+    @NotNull
+    public PluginHook.Register getRegister() {
+        return hook.register();
+    }
 
     public abstract void load();
+
     public abstract void unload();
 
 }

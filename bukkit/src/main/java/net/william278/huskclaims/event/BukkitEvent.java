@@ -20,14 +20,14 @@
 package net.william278.huskclaims.event;
 
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import net.william278.huskclaims.HuskClaims;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings("unused")
-@AllArgsConstructor(access = AccessLevel.PROTECTED)
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public abstract class BukkitEvent extends Event implements net.william278.huskclaims.event.Event {
 
     private static final HandlerList HANDLER_LIST = new HandlerList();

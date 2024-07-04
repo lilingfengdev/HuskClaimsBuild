@@ -33,6 +33,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Map;
 
 public interface EventProvider {
 
@@ -90,5 +91,16 @@ public interface EventProvider {
     @NotNull
     TransferClaimEvent getTransferClaimEvent(@NotNull OnlineUser user, @NotNull Claim claim,
                                              @NotNull ClaimWorld claimWorld, @NotNull User newOwner);
+
+    @NotNull
+    ClaimBanEvent getClaimBanEvent(@NotNull OnlineUser user, @NotNull Claim claim, @NotNull ClaimWorld claimWorld,
+                                   @NotNull User bannedUser);
+
+    @NotNull
+    ClaimUnBanEvent getClaimUnBanEvent(@NotNull OnlineUser user, @NotNull Claim claim, @NotNull ClaimWorld claimWorld,
+                                       @NotNull User bannedUser);
+
+    @NotNull
+    ClaimWorldPruneEvent getClaimWorldPruneEvent(@NotNull ClaimWorld claimWorld, @NotNull Map<User, Long> userMap);
 
 }

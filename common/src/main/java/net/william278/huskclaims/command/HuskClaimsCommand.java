@@ -33,6 +33,7 @@ import net.william278.huskclaims.claim.ClaimWorld;
 import net.william278.huskclaims.config.Locales;
 import net.william278.huskclaims.hook.HuskHomesHook;
 import net.william278.huskclaims.hook.Importer;
+import net.william278.huskclaims.hook.PluginHook;
 import net.william278.huskclaims.position.Position;
 import net.william278.huskclaims.user.AuditLogger;
 import net.william278.huskclaims.user.CommandUser;
@@ -129,6 +130,7 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
                     plugin.loadLocales();
                     plugin.loadSettings();
                     plugin.loadHooks();
+                    plugin.registerHooks(PluginHook.Register.values());
                     plugin.getLocales().getLocale("reload_complete").ifPresent(executor::sendMessage);
                 } catch (Throwable e) {
                     executor.sendMessage(new MineDown(
@@ -295,7 +297,7 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
             plugin.getLocales().getLocale("claim_flags_header", claim.getOwnerName(world, plugin))
                     .ifPresent(onlineUser::sendMessage);
         } else {
-            plugin.getLocales().getLocale("claim_flags_header_wilderness", world.getName(plugin))
+            plugin.getLocales().getLocale("claim_flags_wilderness_header", world.getName(plugin))
                     .ifPresent(onlineUser::sendMessage);
         }
 
@@ -303,7 +305,7 @@ public class HuskClaimsCommand extends Command implements TabCompletable {
                 .map(op -> plugin.getLocales().getRawLocale("claim_flag_%s"
                                 .formatted((claim == null ? world.getWildernessFlags() : claim.getDefaultFlags())
                                         .contains(op) ? "enabled" : "disabled"),
-                        WordUtils.capitalizeFully(op.name().replaceAll("_", " "))
+                        op.name()
                 ).orElse(op.name())).collect(Collectors.joining(plugin.getLocales().getListJoiner()))));
     }
 

@@ -39,7 +39,6 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,7 +63,7 @@ public abstract class Database {
     protected final String[] getScript(@NotNull String name) {
         name = (name.startsWith("database/") ? "" : "database/") + name + (name.endsWith(".sql") ? "" : ".sql");
         try (InputStream file = Objects.requireNonNull(plugin.getResource(name), "Invalid script %s".formatted(name))) {
-            final String schema = new String(file.readAllBytes(), StandardCharsets.UTF_8);
+            @Language("SQL") final String schema = new String(file.readAllBytes(), StandardCharsets.UTF_8);
             return format(schema).split(";");
         } catch (IOException e) {
             plugin.log(Level.SEVERE, "Failed to load database schema", e);
@@ -147,9 +146,11 @@ public abstract class Database {
                     try {
                         plugin.log(Level.INFO, "Performing database migration: " + migration.getMigrationName()
                                 + " (v" + migration.getVersion() + ")");
-                        final String scriptName = "migrations/" + migration.getVersion() + "-" + type.name().toLowerCase() +
-                                "-" + migration.getMigrationName() + ".sql";
-                        executeScript(connection, scriptName);
+                        executeScript(connection, "migrations/%s-%s-%s.sql".formatted(
+                                migration.getVersion(),
+                                type.name().toLowerCase(Locale.ENGLISH),
+                                migration.getMigrationName()
+                        ));
                     } catch (SQLException e) {
                         plugin.log(Level.WARNING, "Migration " + migration.getMigrationName()
                                 + " (v" + migration.getVersion() + ") failed; skipping", e);
@@ -230,7 +231,7 @@ public abstract class Database {
      * @return A list of the user's {@link UserGroup user groups}
      */
     @NotNull
-    public abstract ConcurrentLinkedQueue<UserGroup> getUserGroups(@NotNull UUID uuid);
+    public abstract Set<UserGroup> getUserGroups(@NotNull UUID uuid);
 
     /**
      * Get a map of all {@link UserGroup user groups} for all users.
@@ -238,7 +239,7 @@ public abstract class Database {
      * @return A map of everyone's {@link UserGroup user groups}.
      */
     @NotNull
-    public abstract Set<UserGroup> getAllUserGroups();
+    public abstract Map<UUID, Set<UserGroup>> getAllUserGroups();
 
     /**
      * Add a {@link UserGroup} to the database
@@ -357,7 +358,7 @@ public abstract class Database {
 
         @NotNull
         public static Database.Table match(@NotNull String placeholder) throws IllegalArgumentException {
-            return Table.valueOf(placeholder.toUpperCase());
+            return Table.valueOf(placeholder.toUpperCase(Locale.ENGLISH));
         }
 
         @NotNull
